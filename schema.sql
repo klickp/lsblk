@@ -28,7 +28,7 @@ CREATE TABLE Addresses (
 CREATE TABLE Menu_Categories (
     category_id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100) NOT NULL,
-    display_order INT,
+    display_order INT DEFAULT 0,
     is_active BOOLEAN DEFAULT TRUE
 );
 

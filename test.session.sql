@@ -4,7 +4,6 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 -- Drop all existing tables if they exist
 DROP TABLE IF EXISTS Order_Item_Customizations;
-DROP TABLE IF EXISTS Order_Item_Selections;
 DROP TABLE IF EXISTS Payment_Transactions;
 DROP TABLE IF EXISTS Order_Items;
 DROP TABLE IF EXISTS Orders;
