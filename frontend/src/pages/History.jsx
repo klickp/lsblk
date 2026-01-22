@@ -12,18 +12,34 @@ export default function History() {
   const [selectedOrder, setSelectedOrder] = useState(null)
 
   useEffect(() => {
-    if (user?.email) {
+    // Check if admin (logged into business/kitchen)
+    const isAdminAuth = sessionStorage.getItem('adminAuth') === 'true'
+    
+    if (isAdminAuth) {
+      // Admin view: fetch all orders with limit
+      fetchOrders(null, 20)
+    } else if (user?.email) {
+      // Customer view: fetch only their orders
       fetchOrders(user.email)
     }
   }, [user])
 
-  const fetchOrders = async (email) => {
+  const fetchOrders = async (email = null, limit = null) => {
     setLoading(true)
     try {
-      const response = await apiClient.get('/orders', {
-        params: { customer_email: email }
-      })
-      setOrders(response.data.data || [])
+      const params = {}
+      if (email) {
+        params.customer_email = email
+      }
+      if (limit) {
+        params.limit = limit
+      }
+      const response = await apiClient.get('/orders', { params })
+      // Ensure orders are sorted by most recent first
+      const sorted = (response.data.data || []).sort((a, b) => 
+        new Date(b.created_at) - new Date(a.created_at)
+      )
+      setOrders(sorted)
     } catch (err) {
       setError('Failed to load orders')
       console.error(err)
@@ -54,30 +70,29 @@ export default function History() {
     return colors[status] || '#6c757d'
   }
 
-  if (!user) {
-    return (
-      <div className="history-container">
-        <div className="empty-state">
-          <p>Please log in to view your order history.</p>
-          <button className="start-ordering-btn" onClick={openAuth}>Log In</button>
-        </div>
-      </div>
-    )
-  }
+  const isAdminView = sessionStorage.getItem('adminAuth') === 'true'
 
   if (loading) return <div className="history-container"><p>Loading orders...</p></div>
   if (error) return <div className="history-container error"><p>{error}</p></div>
 
   return (
     <div className="history-container">
-      <h1>📊 Order History</h1>
+      <h1>{isAdminView ? '📊 All Orders' : '📊 Order History'}</h1>
+      {isAdminView && <p className="admin-note">Showing last 20 orders</p>}
 
       <div className="history-layout">
         <div className="orders-list">
           {orders.length === 0 ? (
             <div className="empty-state">
-              <p>No orders yet</p>
-              <Link to="/" className="start-ordering-btn">Start Ordering</Link>
+              <p>{isAdminView ? 'No orders yet' : 'No orders yet'}</p>
+              {!isAdminView && (
+                <>
+                  <Link to="/" className="start-ordering-btn">Start Ordering</Link>
+                  {!user && (
+                    <button className="start-ordering-btn" onClick={openAuth}>Log In</button>
+                  )}
+                </>
+              )}
             </div>
           ) : (
             <div className="orders-table">
@@ -85,7 +100,8 @@ export default function History() {
                 <thead>
                   <tr>
                     <th>Order ID</th>
-                    <th>Customer</th>
+                    {isAdminView && <th>Customer</th>}
+                    {!isAdminView && <th>Customer</th>}
                     <th>Total</th>
                     <th>Status</th>
                     <th>Date</th>

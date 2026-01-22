@@ -197,7 +197,8 @@ router.post('/orders', async (req, res) => {
 // Get all orders (with optional filtering)
 router.get('/orders', async (req, res) => {
   try {
-    const { status, customer_name, customer_email } = req.query;
+    const { status, customer_name, customer_email, limit } = req.query;
+    const orderLimit = limit ? Math.min(parseInt(limit), 100) : null; // Max 100 to prevent abuse
     
     // Try database first
     try {
@@ -211,8 +212,11 @@ router.get('/orders', async (req, res) => {
       const params = [];
 
       if (status) {
-        query += ' AND status = ?';
-        params.push(status);
+        // Support comma-separated statuses
+        const statuses = status.split(',').map(s => s.trim());
+        const placeholders = statuses.map(() => '?').join(',');
+        query += ` AND status IN (${placeholders})`;
+        params.push(...statuses);
       }
       
       if (customer_name) {
@@ -226,6 +230,10 @@ router.get('/orders', async (req, res) => {
       }
 
       query += ' ORDER BY created_at DESC';
+      
+      if (orderLimit) {
+        query += ` LIMIT ${orderLimit}`;
+      }
 
       const [orders] = await connection.query(query, params);
       connection.release();
@@ -241,7 +249,9 @@ router.get('/orders', async (req, res) => {
     let filteredOrders = [...mockOrders];
     
     if (status) {
-      filteredOrders = filteredOrders.filter(o => o.status === status);
+      // Support comma-separated statuses
+      const statuses = status.split(',').map(s => s.trim());
+      filteredOrders = filteredOrders.filter(o => statuses.includes(o.status));
     }
     
     if (customer_name) {
@@ -258,6 +268,11 @@ router.get('/orders', async (req, res) => {
     
     // Sort by created_at desc
     filteredOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    
+    // Apply limit
+    if (orderLimit) {
+      filteredOrders = filteredOrders.slice(0, orderLimit);
+    }
     
     res.json({ success: true, data: filteredOrders });
   } catch (error) {

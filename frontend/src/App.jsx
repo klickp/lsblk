@@ -1,11 +1,55 @@
 import React, { useState, useMemo, useEffect, createContext } from 'react'
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
 import './App.css'
 import Menu from './pages/Menu'
 import Cart from './pages/Cart'
 import History from './pages/History'
+import Business from './pages/Business'
+import Kitchen from './pages/Kitchen'
+import BusinessHistory from './pages/BusinessHistory'
 
 export const AuthContext = createContext(null)
+
+function Navigation({ cartCount, user, openAuth, handleLogout }) {
+  const location = useLocation()
+  const isAdminPage = location.pathname === '/business' || location.pathname === '/kitchen'
+
+  if (isAdminPage) {
+    return null // Don't show nav on admin pages
+  }
+
+  return (
+    <nav className="navbar">
+      <div className="nav-container">
+        <Link to="/" className="nav-logo">
+          🍽️ Ordering System
+        </Link>
+        <div className="nav-menu">
+          <Link to="/" className="nav-link">
+            🍕 Menu
+          </Link>
+          <Link to="/cart" className="nav-link cart-link">
+            🛒 Cart
+            {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
+          </Link>
+          {user && (
+            <Link to="/history" className="nav-link">
+              📊 History
+            </Link>
+          )}
+          {user ? (
+            <div className="nav-auth-inline">
+              <span className="user-chip">Hi, {user.name || user.email}</span>
+              <button className="auth-btn" onClick={handleLogout}>Logout</button>
+            </div>
+          ) : (
+            <button className="auth-btn" onClick={openAuth}>Log In</button>
+          )}
+        </div>
+      </div>
+    </nav>
+  )
+}
 
 function App() {
   const [cartCount, setCartCount] = useState(0)
@@ -122,41 +166,21 @@ function App() {
     <AuthContext.Provider value={authContextValue}>
       <Router>
         <div className="app">
-          <nav className="navbar">
-            <div className="nav-container">
-              <Link to="/" className="nav-logo">
-                🍽️ Ordering System
-              </Link>
-              <div className="nav-menu">
-                <Link to="/" className="nav-link">
-                  🍕 Menu
-                </Link>
-                <Link to="/cart" className="nav-link cart-link">
-                  🛒 Cart
-                  {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
-                </Link>
-                {user && (
-                  <Link to="/history" className="nav-link">
-                    📊 History
-                  </Link>
-                )}
-                {user ? (
-                  <div className="nav-auth-inline">
-                    <span className="user-chip">Hi, {user.name || user.email}</span>
-                    <button className="auth-btn" onClick={handleLogout}>Logout</button>
-                  </div>
-                ) : (
-                  <button className="auth-btn" onClick={() => setAuthOpen(true)}>Log In</button>
-                )}
-              </div>
-            </div>
-          </nav>
+          <Navigation 
+            cartCount={cartCount} 
+            user={user} 
+            openAuth={() => setAuthOpen(true)}
+            handleLogout={handleLogout}
+          />
 
           <main className="main-content">
             <Routes>
               <Route path="/" element={<Menu />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/history" element={<History />} />
+              <Route path="/business" element={<Business />} />
+              <Route path="/business/history" element={<BusinessHistory />} />
+              <Route path="/kitchen" element={<Kitchen />} />
             </Routes>
           </main>
 

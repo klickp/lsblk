@@ -7,7 +7,15 @@
 .history-container h1 {
   text-align: center;
   color: var(--primary-color);
-  margin-bottom: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-note {
+  text-align: center;
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0 0 1.5rem 0;
+  font-style: italic;
 }
 
 .history-container.error {
