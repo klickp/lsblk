@@ -6,39 +6,41 @@ export default function Menu() {
   const [categories, setCategories] = useState([])
   const [menu, setMenu] = useState([])
   const [selectedCategory, setSelectedCategory] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    fetchCategories()
-    fetchMenu()
+    loadMenuData()
   }, [])
 
-  const fetchCategories = async () => {
-    try {
-      const response = await apiClient.get('/categories')
-      setCategories(response.data.data)
-    } catch (err) {
-      setError('Failed to load categories')
-      console.error(err)
-    }
-  }
-
-  const fetchMenu = async () => {
+  const loadMenuData = async () => {
     setLoading(true)
     try {
-      const response = await apiClient.get('/menu')
-      setMenu(response.data.data)
+      const [categoriesRes, menuRes] = await Promise.all([
+        apiClient.get('/categories'),
+        apiClient.get('/menu')
+      ])
+      
+      setCategories(categoriesRes.data.data || [])
+      setMenu(menuRes.data.data || [])
+      setError(null)
     } catch (err) {
-      setError('Failed to load menu')
-      console.error(err)
+      setError('Failed to load menu. Please refresh the page.')
+      console.error('Menu loading error:', err)
     } finally {
       setLoading(false)
     }
   }
 
-  const getItemsByCategory = (categoryId) => {
-    return menu.filter(item => item.category_id === categoryId)
+  const handleCategoryChange = (categoryId) => {
+    setSelectedCategory(categoryId)
+  }
+
+  const getFilteredItems = () => {
+    if (selectedCategory === null) {
+      return menu
+    }
+    return menu.filter(item => item.category_id === selectedCategory)
   }
 
   const addToCart = (item) => {
@@ -52,103 +54,147 @@ export default function Menu() {
     }
     
     localStorage.setItem('cart', JSON.stringify(cart))
-    alert(`${item.name} added to cart!`)
     window.dispatchEvent(new Event('storage'))
+    
+    // Show toast notification
+    const event = new CustomEvent('showToast', {
+      detail: { message: `${item.name} added to cart!`, type: 'success' }
+    })
+    window.dispatchEvent(event)
   }
 
-  const renderMenuItem = (item) => (
-    <div key={item.item_id} className="menu-item-card">
-      <div className="item-image">
-        {item.image_url ? (
-          <img src={item.image_url} alt={item.name} />
-        ) : (
-          <div className="placeholder">🍕</div>
-        )}
-      </div>
-      <h4>{item.name}</h4>
-      <p className="description">{item.description}</p>
-      <div className="item-footer">
-        <span className="price">${item.price.toFixed(2)}</span>
-        <button
-          onClick={() => addToCart(item)}
-          className="add-btn"
-        >
-          Add to Cart
-        </button>
-      </div>
-    </div>
-  )
+  const renderCategorySection = (category) => {
+    const items = menu.filter(item => item.category_id === category.category_id)
+    
+    if (items.length === 0) return null
 
-  const renderItems = () => {
-    if (selectedCategory === null) {
-      // Show all categories
-      return categories.map(category => {
-        const items = getItemsByCategory(category.category_id)
-        if (items.length === 0) return null
-        
-        return (
-          <div key={category.category_id} className="category-section">
-            <h2 className="category-title">{category.name}</h2>
-            <div className="items-grid">
-              {items.map(item => renderMenuItem(item))}
+    return (
+      <div key={category.category_id} className="category-section">
+        <h2 className="category-title">{category.name}</h2>
+        <div className="items-grid">
+          {items.map(item => (
+            <div key={item.item_id} className="menu-item-card">
+              <div className="item-image">
+                {item.image_url ? (
+                  <img src={item.image_url} alt={item.name} />
+                ) : (
+                  <div className="placeholder">🍕</div>
+                )}
+              </div>
+              <div className="item-details">
+                <h4>{item.name}</h4>
+                <p className="description">{item.description}</p>
+              </div>
+              <div className="item-footer">
+                <span className="price">${item.price.toFixed(2)}</span>
+                <button
+                  onClick={() => addToCart(item)}
+                  className="add-btn"
+                >
+                  Add to Cart
+                </button>
+              </div>
             </div>
-          </div>
-        )
-      })
-    } else {
-      // Show selected category only
-      const category = categories.find(c => c.category_id === selectedCategory)
-      const items = getItemsByCategory(selectedCategory)
-      
-      if (!category || items.length === 0) {
-        return <p className="loading">No items in this category</p>
-      }
-      
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  const renderMenuContent = () => {
+    if (loading) {
+      return <div className="loading">Loading menu...</div>
+    }
+
+    if (error) {
+      return <div className="error-message">{error}</div>
+    }
+
+    if (menu.length === 0) {
+      return <div className="loading">No menu items available</div>
+    }
+
+    // Show all categories when "All Items" is selected
+    if (selectedCategory === null) {
       return (
-        <div className="category-section">
-          <h2 className="category-title">{category.name}</h2>
-          <div className="items-grid">
-            {items.map(item => renderMenuItem(item))}
-          </div>
+        <div className="menu-sections">
+          {categories.map(category => renderCategorySection(category))}
         </div>
       )
     }
+
+    // Show selected category only
+    const category = categories.find(c => c.category_id === selectedCategory)
+    const filteredItems = getFilteredItems()
+
+    if (!category) {
+      return <div className="loading">Category not found</div>
+    }
+
+    if (filteredItems.length === 0) {
+      return <div className="loading">No items in this category</div>
+    }
+
+    return (
+      <div className="menu-sections">
+        <div className="category-section">
+          <h2 className="category-title">{category.name}</h2>
+          <div className="items-grid">
+            {filteredItems.map(item => (
+              <div key={item.item_id} className="menu-item-card">
+                <div className="item-image">
+                  {item.image_url ? (
+                    <img src={item.image_url} alt={item.name} />
+                  ) : (
+                    <div className="placeholder">🍕</div>
+                  )}
+                </div>
+                <div className="item-details">
+                  <h4>{item.name}</h4>
+                  <p className="description">{item.description}</p>
+                </div>
+                <div className="item-footer">
+                  <span className="price">${item.price.toFixed(2)}</span>
+                  <button
+                    onClick={() => addToCart(item)}
+                    className="add-btn"
+                  >
+                    Add to Cart
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="menu-container">
       <h1>🍽️ Our Menu</h1>
 
-      {error && <div className="error-message">{error}</div>}
-
-      <div className="category-tabs">
-        <button
-          className={`category-tab ${selectedCategory === null ? 'active' : ''}`}
-          onClick={() => setSelectedCategory(null)}
-        >
-          All Items
-        </button>
-        {categories.map(cat => (
+      {!loading && categories.length > 0 && (
+        <div className="category-tabs">
           <button
-            key={cat.category_id}
-            className={`category-tab ${selectedCategory === cat.category_id ? 'active' : ''}`}
-            onClick={() => setSelectedCategory(cat.category_id)}
+            className={`category-tab ${selectedCategory === null ? 'active' : ''}`}
+            onClick={() => handleCategoryChange(null)}
           >
-            {cat.name}
+            All Items
           </button>
-        ))}
-      </div>
-
-      {loading ? (
-        <p className="loading">Loading menu...</p>
-      ) : menu.length === 0 ? (
-        <p className="loading">No menu items available</p>
-      ) : (
-        <div className="menu-sections">
-          {renderItems()}
+          {categories.map(category => (
+            <button
+              key={category.category_id}
+              className={`category-tab ${selectedCategory === category.category_id ? 'active' : ''}`}
+              onClick={() => handleCategoryChange(category.category_id)}
+            >
+              {category.name}
+            </button>
+          ))}
         </div>
       )}
+
+      {renderMenuContent()}
     </div>
   )
-}
 }

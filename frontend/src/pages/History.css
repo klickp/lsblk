@@ -29,19 +29,39 @@
 
 .empty-state {
   text-align: center;
-  padding: 3rem;
+  padding: 4rem 2rem;
   color: #666;
 }
 
-.empty-state a {
+.empty-state p {
+  font-size: 1.2rem;
+  margin-bottom: 1.5rem;
+  color: #999;
+}
+
+.start-ordering-btn {
   display: inline-block;
-  margin-top: 1rem;
-  background-color: var(--primary-color);
+  background: linear-gradient(135deg, #ff6b6b, #ee5a52);
   color: white;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
+  padding: 0.9rem 2rem;
+  border-radius: 8px;
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 1.05rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.start-ordering-btn:hover {
+  background: linear-gradient(135deg, #ee5a52, #e74c3c);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 107, 107, 0.4);
+}
+
+.start-ordering-btn:active {
+  transform: translateY(0);
 }
 
 .orders-table {

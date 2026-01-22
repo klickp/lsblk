@@ -1,21 +1,28 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useContext } from 'react'
+import { Link } from 'react-router-dom'
 import './History.css'
 import apiClient from '../services/api'
+import { AuthContext } from '../App'
 
 export default function History() {
+  const { user, openAuth } = useContext(AuthContext)
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [selectedOrder, setSelectedOrder] = useState(null)
 
   useEffect(() => {
-    fetchOrders()
-  }, [])
+    if (user?.email) {
+      fetchOrders(user.email)
+    }
+  }, [user])
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (email) => {
     setLoading(true)
     try {
-      const response = await apiClient.get('/orders')
+      const response = await apiClient.get('/orders', {
+        params: { customer_email: email }
+      })
       setOrders(response.data.data || [])
     } catch (err) {
       setError('Failed to load orders')
@@ -47,6 +54,17 @@ export default function History() {
     return colors[status] || '#6c757d'
   }
 
+  if (!user) {
+    return (
+      <div className="history-container">
+        <div className="empty-state">
+          <p>Please log in to view your order history.</p>
+          <button className="start-ordering-btn" onClick={openAuth}>Log In</button>
+        </div>
+      </div>
+    )
+  }
+
   if (loading) return <div className="history-container"><p>Loading orders...</p></div>
   if (error) return <div className="history-container error"><p>{error}</p></div>
 
@@ -59,7 +77,7 @@ export default function History() {
           {orders.length === 0 ? (
             <div className="empty-state">
               <p>No orders yet</p>
-              <a href="/menu">Start ordering</a>
+              <Link to="/" className="start-ordering-btn">Start Ordering</Link>
             </div>
           ) : (
             <div className="orders-table">

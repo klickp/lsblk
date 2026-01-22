@@ -18,14 +18,14 @@ const mockMenuItems = [
   { item_id: 1, name: 'Classic Burger', description: 'Juicy beef burger with lettuce and tomato', price: 8.99, category: 'Burgers', category_id: 1, is_available: true, image_url: null },
   { item_id: 2, name: 'Cheese Burger', description: 'Beef burger with melted cheddar cheese', price: 9.99, category: 'Burgers', category_id: 1, is_available: true, image_url: null },
   { item_id: 3, name: 'Bacon Burger', description: 'Beef with crispy bacon and BBQ sauce', price: 10.99, category: 'Burgers', category_id: 1, is_available: true, image_url: null },
-  { item_id: 4, name: 'Double Burger', description: 'Two patties with all the toppings', price: 12.99, category: 'Burgers', category_id: 1, is_available: true, image_url: null },
+  { item_id: 4, name: 'Double Burger', description: 'Two patties with all the toppings', price: 12.99, category: 'Burgers', category_id: 1, is_available: false, image_url: null }, // Out of stock
   { item_id: 5, name: 'Mushroom Swiss Burger', description: 'Beef with mushrooms and swiss cheese', price: 11.49, category: 'Burgers', category_id: 1, is_available: true, image_url: null },
   
   // Pizzas
   { item_id: 6, name: 'Margherita Pizza', description: 'Fresh mozzarella, tomato, and basil', price: 12.99, category: 'Pizzas', category_id: 2, is_available: true, image_url: null },
   { item_id: 7, name: 'Pepperoni Pizza', description: 'Classic pepperoni with extra cheese', price: 13.99, category: 'Pizzas', category_id: 2, is_available: true, image_url: null },
   { item_id: 8, name: 'Vegetarian Pizza', description: 'Bell peppers, onions, mushrooms, olives', price: 12.49, category: 'Pizzas', category_id: 2, is_available: true, image_url: null },
-  { item_id: 9, name: 'Meat Lovers Pizza', description: 'Pepperoni, sausage, ham, and bacon', price: 15.99, category: 'Pizzas', category_id: 2, is_available: true, image_url: null },
+  { item_id: 9, name: 'Meat Lovers Pizza', description: 'Pepperoni, sausage, ham, and bacon', price: 15.99, category: 'Pizzas', category_id: 2, is_available: false, image_url: null }, // Out of stock
   { item_id: 10, name: 'BBQ Chicken Pizza', description: 'Grilled chicken, BBQ sauce, red onion', price: 14.49, category: 'Pizzas', category_id: 2, is_available: true, image_url: null },
   
   // Pasta
@@ -45,7 +45,7 @@ const mockMenuItems = [
   // Desserts
   { item_id: 21, name: 'Chocolate Cake', description: 'Rich chocolate cake with frosting', price: 5.99, category: 'Desserts', category_id: 5, is_available: true, image_url: null },
   { item_id: 22, name: 'Vanilla Ice Cream', description: 'Vanilla ice cream sundae with toppings', price: 4.99, category: 'Desserts', category_id: 5, is_available: true, image_url: null },
-  { item_id: 23, name: 'Cheesecake', description: 'New York style cheesecake', price: 6.99, category: 'Desserts', category_id: 5, is_available: true, image_url: null },
+  { item_id: 23, name: 'Cheesecake', description: 'New York style cheesecake', price: 6.99, category: 'Desserts', category_id: 5, is_available: false, image_url: null }, // Out of stock
   { item_id: 24, name: 'Brownie', description: 'Fudgy chocolate brownie', price: 3.99, category: 'Desserts', category_id: 5, is_available: true, image_url: null },
   { item_id: 25, name: 'Tiramisu', description: 'Classic Italian tiramisu', price: 5.49, category: 'Desserts', category_id: 5, is_available: true, image_url: null },
   

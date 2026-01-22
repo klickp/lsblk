@@ -4,10 +4,35 @@
   padding: 2rem;
 }
 
-.cart-container h1 {
-  text-align: center;
+.cart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.cart-header h1 {
   color: var(--primary-color);
-  margin-bottom: 2rem;
+  margin: 0;
+}
+
+.login-under {
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--primary-color);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.login-under:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
 }
 
 .message {
@@ -42,19 +67,39 @@
 
 .empty-cart {
   text-align: center;
-  padding: 3rem;
+  padding: 4rem 2rem;
   color: #666;
 }
 
-.empty-cart a {
+.empty-cart p {
+  font-size: 1.2rem;
+  margin-bottom: 1.5rem;
+  color: #999;
+}
+
+.browse-menu-btn {
   display: inline-block;
-  margin-top: 1rem;
-  background-color: var(--primary-color);
+  background: linear-gradient(135deg, #4ecdc4, #44a08d);
   color: white;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
+  padding: 0.9rem 2rem;
+  border-radius: 8px;
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 1.05rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(78, 205, 196, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.browse-menu-btn:hover {
+  background: linear-gradient(135deg, #44a08d, #3a8f7d);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(78, 205, 196, 0.4);
+}
+
+.browse-menu-btn:active {
+  transform: translateY(0);
 }
 
 .cart-table {
@@ -154,10 +199,45 @@
   justify-content: space-between;
   padding: 0.75rem 0;
   border-bottom: 1px solid var(--border-color);
+  font-size: 0.95rem;
 }
 
 .summary-row.total {
-  font-size: 1.2rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  border-top: 2px solid var(--primary-color);
+  border-bottom: none;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+}
+
+.free-delivery {
+  color: #00b894;
+  font-weight: 700;
+}
+
+.delivery-notice {
+  background: linear-gradient(135deg, #fff5e6, #ffe4cc);
+  border-left: 4px solid #fdcb6e;
+  padding: 0.75rem;
+  margin: 1rem 0;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: #d35400;
+  font-weight: 600;
+}
+
+.payment-note {
+  text-align: center;
+  color: #00b894;
+  font-weight: 600;
+  margin-top: 1rem;
+  font-size: 0.95rem;
+  padding: 0.5rem;
+  background: #e8f8f5;
+  border-radius: 4px;
+}
   font-weight: 600;
   color: var(--primary-color);
   border-top: 2px solid var(--border-color);

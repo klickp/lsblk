@@ -9,6 +9,7 @@ const winston = require('winston');
 // Load routes
 const menuRoutes = require('./routes/menu');
 const ordersRoutes = require('./routes/orders');
+const authRoutes = require('./routes/auth');
 
 // Load environment variables
 dotenv.config();
@@ -67,6 +68,7 @@ app.get('/api/db-test', async (req, res) => {
 // Mount routes
 app.use('/api', menuRoutes);
 app.use('/api', ordersRoutes);
+app.use('/api/auth', authRoutes);
 
 // 404 handler
 app.use((req, res) => {

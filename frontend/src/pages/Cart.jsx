@@ -1,17 +1,26 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useContext } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import './Cart.css'
 import apiClient from '../services/api'
+import { AuthContext } from '../App'
 
 export default function Cart() {
+  const navigate = useNavigate()
+  const { user, openAuth } = useContext(AuthContext)
   const [cart, setCart] = useState([])
   const [customerName, setCustomerName] = useState('')
+  const [customerEmail, setCustomerEmail] = useState('')
   const [notes, setNotes] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
 
   useEffect(() => {
     loadCart()
-  }, [])
+    if (user) {
+      setCustomerName((prev) => prev || user.name)
+      setCustomerEmail((prev) => prev || user.email)
+    }
+  }, [user])
 
   const loadCart = () => {
     const savedCart = localStorage.getItem('cart')
@@ -37,14 +46,30 @@ export default function Cart() {
     const updatedCart = cart.filter(item => item.item_id !== itemId)
     setCart(updatedCart)
     localStorage.setItem('cart', JSON.stringify(updatedCart))
+    window.dispatchEvent(new Event('storage'))
   }
 
-  const getTotalPrice = () => {
+  const getSubtotal = () => {
     return cart.reduce((total, item) => total + item.price * item.quantity, 0)
   }
 
+  const getTax = () => {
+    return getSubtotal() * 0.08 // 8% tax
+  }
+
+  const getDeliveryFee = () => {
+    return getSubtotal() > 20 ? 0 : 2.99 // Free delivery over $20
+  }
+
+  const getTotalPrice = () => {
+    return getSubtotal() + getTax() + getDeliveryFee()
+  }
+
   const handleCheckout = async () => {
-    if (!customerName.trim()) {
+    const finalName = customerName.trim() || user?.name || ''
+    const finalEmail = customerEmail.trim() || user?.email || ''
+
+    if (!finalName) {
       setMessage('Please enter your name')
       return
     }
@@ -55,30 +80,56 @@ export default function Cart() {
     }
 
     setIsLoading(true)
+    setMessage('')
+    
     try {
+      const subtotal = getSubtotal()
+      const tax = getTax()
+      const deliveryFee = getDeliveryFee()
+      const total = getTotalPrice()
+
       const orderData = {
-        customer_name: customerName,
+        customer_name: finalName,
+        customer_email: finalEmail || null,
         items: cart.map(item => ({
           item_id: item.item_id,
+          name: item.name,
           quantity: item.quantity,
           price: item.price,
         })),
-        total_price: getTotalPrice(),
-        notes,
+        subtotal: subtotal,
+        tax_amount: tax,
+        delivery_fee: deliveryFee,
+        total_price: total,
+        notes: notes,
+        payment_method: 'cash', // Bypass payment for now
       }
 
       const response = await apiClient.post('/orders', orderData)
 
       if (response.data.success) {
-        setMessage(`✅ Order #${response.data.orderId} created successfully!`)
+        setMessage(`✅ Order #${response.data.orderId} placed successfully! Your order is being prepared.`)
         setCart([])
         localStorage.removeItem('cart')
-        setCustomerName('')
+        localStorage.setItem('cart', JSON.stringify([])) // Clear cart
+        window.dispatchEvent(new Event('storage'))
+        setCustomerName(user?.name || '')
+        setCustomerEmail(user?.email || '')
         setNotes('')
-        setTimeout(() => setMessage(''), 5000)
+        
+        // Show success toast
+        const event = new CustomEvent('showToast', {
+          detail: { message: `Order #${response.data.orderId} confirmed!`, type: 'success' }
+        })
+        window.dispatchEvent(event)
+        
+        setTimeout(() => {
+          setMessage('')
+          navigate('/history')
+        }, 2000)
       }
     } catch (error) {
-      setMessage('❌ Failed to create order: ' + error.message)
+      setMessage('❌ Failed to create order. Please try again.')
       console.error(error)
     } finally {
       setIsLoading(false)
@@ -94,7 +145,9 @@ export default function Cart() {
 
   return (
     <div className="cart-container">
-      <h1>🛒 Shopping Cart</h1>
+      <div className="cart-header">
+        <h1>🛒 Shopping Cart</h1>
+      </div>
 
       {message && (
         <div className={`message ${message.startsWith('✅') ? 'success' : 'error'}`}>
@@ -107,7 +160,7 @@ export default function Cart() {
           {cart.length === 0 ? (
             <div className="empty-cart">
               <p>Your cart is empty</p>
-              <a href="/">Browse menu</a>
+              <Link to="/" className="browse-menu-btn">Browse Menu</Link>
             </div>
           ) : (
             <>
@@ -168,40 +221,69 @@ export default function Cart() {
 
             <div className="summary-row">
               <span>Subtotal:</span>
-              <span>${getTotalPrice().toFixed(2)}</span>
+              <span>${getSubtotal().toFixed(2)}</span>
             </div>
             <div className="summary-row">
-              <span>Tax (10%):</span>
-              <span>${(getTotalPrice() * 0.1).toFixed(2)}</span>
+              <span>Tax (8%):</span>
+              <span>${getTax().toFixed(2)}</span>
+            </div>
+            <div className="summary-row">
+              <span>Delivery Fee:</span>
+              <span>
+                {getDeliveryFee() === 0 ? (
+                  <span className="free-delivery">FREE</span>
+                ) : (
+                  `$${getDeliveryFee().toFixed(2)}`
+                )}
+              </span>
             </div>
             <div className="summary-row total">
               <span>Total:</span>
-              <span>${(getTotalPrice() * 1.1).toFixed(2)}</span>
+              <span>${getTotalPrice().toFixed(2)}</span>
             </div>
+
+            {getSubtotal() < 20 && getSubtotal() > 0 && (
+              <div className="delivery-notice">
+                Add ${(20 - getSubtotal()).toFixed(2)} more for free delivery!
+              </div>
+            )}
 
             <div className="checkout-form">
               <input
                 type="text"
-                placeholder="Your name"
+                placeholder="Your Name *"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 className="form-input"
+                required
               />
-
+              <input
+                type="email"
+                placeholder="Email (for history)"
+                value={customerEmail}
+                onChange={(e) => setCustomerEmail(e.target.value)}
+                className="form-input"
+              />
               <textarea
                 placeholder="Special instructions (optional)"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="form-textarea"
+                rows="3"
               />
-
               <button
                 onClick={handleCheckout}
-                disabled={isLoading || cart.length === 0}
+                disabled={isLoading}
                 className="btn-checkout"
               >
-                {isLoading ? '⏳ Processing...' : '✓ Place Order'}
+                {isLoading ? 'Processing...' : `Place Order - $${getTotalPrice().toFixed(2)}`}
               </button>
+              {!user && (
+                <button type="button" className="login-under" onClick={openAuth}>
+                  Log in to save history
+                </button>
+              )}
+              <p className="payment-note">💵 Pay with cash on delivery</p>
             </div>
           </div>
         )}
