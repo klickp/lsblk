@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useContext } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import './Cart.css'
-import apiClient from '../services/api'
+import { orderApi, promoApi } from '../services/api'
 import { AuthContext } from '../App'
 
 export default function Cart() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, openAuth } = useContext(AuthContext)
   const [cart, setCart] = useState([])
   const [customerName, setCustomerName] = useState('')
@@ -13,6 +14,11 @@ export default function Cart() {
   const [notes, setNotes] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [promoCode, setPromoCode] = useState('')
+  const [appliedPromo, setAppliedPromo] = useState(null)
+  const [promoError, setPromoError] = useState('')
+  const [promoLoading, setPromoLoading] = useState(false)
+  const [deliveryMethod, setDeliveryMethod] = useState('delivery') // 'delivery' or 'pickup'
 
   useEffect(() => {
     loadCart()
@@ -20,7 +26,18 @@ export default function Cart() {
       setCustomerName((prev) => prev || user.name)
       setCustomerEmail((prev) => prev || user.email)
     }
-  }, [user])
+    
+    // Auto-fill promo code if passed from navigation state
+    if (location.state?.promoCode && !appliedPromo) {
+      setPromoCode(location.state.promoCode)
+      // Auto-apply the promo code after a short delay
+      setTimeout(() => {
+        handleApplyPromo(location.state.promoCode)
+      }, 500)
+      // Clear the navigation state
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+  }, [user, location.state])
 
   const loadCart = () => {
     const savedCart = localStorage.getItem('cart')
@@ -58,11 +75,63 @@ export default function Cart() {
   }
 
   const getDeliveryFee = () => {
+    // No delivery fee for pickup
+    if (deliveryMethod === 'pickup') {
+      return 0
+    }
+    // Check if FREESHIP promo is applied
+    if (appliedPromo && appliedPromo.type === 'delivery') {
+      return 0
+    }
     return getSubtotal() > 20 ? 0 : 2.99 // Free delivery over $20
   }
 
+  const getDiscount = () => {
+    return appliedPromo ? appliedPromo.discountAmount : 0
+  }
+
   const getTotalPrice = () => {
-    return getSubtotal() + getTax() + getDeliveryFee()
+    return getSubtotal() + getTax() + getDeliveryFee() - getDiscount()
+  }
+
+  const handleApplyPromo = async (codeToApply) => {
+    const code = codeToApply || promoCode
+    if (!code.trim()) {
+      setPromoError('Please enter a promo code')
+      return
+    }
+
+    setPromoLoading(true)
+    setPromoError('')
+
+    try {
+      const response = await promoApi.validate(code.trim(), getSubtotal())
+
+      if (response.data.success) {
+        setAppliedPromo(response.data.data)
+        setPromoError('')
+        setPromoCode('')
+        
+        // Show success toast
+        const event = new CustomEvent('showToast', {
+          detail: { message: `Promo applied! -$${response.data.data.discountAmount.toFixed(2)}`, type: 'success' }
+        })
+        window.dispatchEvent(event)
+      }
+    } catch (error) {
+      console.error('Promo error:', error)
+      const errorMsg = error.response?.data?.error || 'Invalid promo code'
+      setPromoError(errorMsg)
+      setAppliedPromo(null)
+    } finally {
+      setPromoLoading(false)
+    }
+  }
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null)
+    setPromoCode('')
+    setPromoError('')
   }
 
   const handleCheckout = async () => {
@@ -101,11 +170,11 @@ export default function Cart() {
         tax_amount: tax,
         delivery_fee: deliveryFee,
         total_price: total,
-        notes: notes,
+        notes: `${deliveryMethod === 'pickup' ? '[PICKUP] ' : ''}${notes}`,
         payment_method: 'cash', // Bypass payment for now
       }
 
-      const response = await apiClient.post('/orders', orderData)
+      const response = await orderApi.createOrder(orderData)
 
       if (response.data.success) {
         setMessage(`✅ Order #${response.data.orderId} placed successfully! Your order is being prepared.`)
@@ -129,8 +198,35 @@ export default function Cart() {
         }, 2000)
       }
     } catch (error) {
-      setMessage('❌ Failed to create order. Please try again.')
-      console.error(error)
+      console.error('Order error:', error)
+      
+      // Extract detailed error message
+      let errorMessage = '❌ Failed to create order. '
+      
+      if (error.response) {
+        // Backend returned an error response
+        const backendError = error.response.data?.error || error.response.data?.message
+        
+        if (backendError) {
+          errorMessage += backendError
+        } else if (error.response.status === 400) {
+          errorMessage += 'Invalid order data. Please check your information.'
+        } else if (error.response.status === 401) {
+          errorMessage += 'Authentication required. Please log in.'
+        } else if (error.response.status === 500) {
+          errorMessage += 'Server error. Please try again later.'
+        } else {
+          errorMessage += `Error ${error.response.status}. Please try again.`
+        }
+      } else if (error.request) {
+        // Request was made but no response received
+        errorMessage += 'Cannot connect to server. Please check your internet connection.'
+      } else {
+        // Something else went wrong
+        errorMessage += error.message || 'Please try again.'
+      }
+      
+      setMessage(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -215,18 +311,82 @@ export default function Cart() {
           )}
         </div>
 
-        {cart.length > 0 && (
-          <div className="checkout-panel">
-            <h3>Order Summary</h3>
+        {/* Always show checkout panel, even when cart is empty */}
+        <div className="checkout-panel">
+          <h3>Order Summary</h3>
 
-            <div className="summary-row">
-              <span>Subtotal:</span>
-              <span>${getSubtotal().toFixed(2)}</span>
+          {/* Promo Code Section */}
+          <div className="promo-section">
+            <div className="promo-input-group">
+              <input
+                type="text"
+                placeholder="Enter promo code"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                onKeyPress={(e) => e.key === 'Enter' && handleApplyPromo()}
+                className="promo-input"
+                disabled={appliedPromo !== null}
+              />
+              {appliedPromo ? (
+                <button onClick={handleRemovePromo} className="promo-btn remove">
+                  ✕
+                </button>
+              ) : (
+                <button 
+                  onClick={handleApplyPromo} 
+                  disabled={promoLoading}
+                  className="promo-btn apply"
+                >
+                  {promoLoading ? '...' : 'Apply'}
+                </button>
+              )}
             </div>
-            <div className="summary-row">
-              <span>Tax (8%):</span>
-              <span>${getTax().toFixed(2)}</span>
+            {promoError && <div className="promo-error">❌ {promoError}</div>}
+            {appliedPromo && (
+              <div className="promo-success">
+                ✅ {appliedPromo.description}
+              </div>
+            )}
+          </div>
+
+          {/* Delivery Method Selection */}
+          <div className="delivery-method-section">
+            <h4>Order Type</h4>
+            <div className="delivery-options">
+              <label className={`delivery-option ${deliveryMethod === 'delivery' ? 'active' : ''}`}>
+                <input
+                  type="radio"
+                  name="deliveryMethod"
+                  value="delivery"
+                  checked={deliveryMethod === 'delivery'}
+                  onChange={(e) => setDeliveryMethod(e.target.value)}
+                />
+                <span className="option-icon">🚚</span>
+                <span className="option-label">Delivery</span>
+              </label>
+              <label className={`delivery-option ${deliveryMethod === 'pickup' ? 'active' : ''}`}>
+                <input
+                  type="radio"
+                  name="deliveryMethod"
+                  value="pickup"
+                  checked={deliveryMethod === 'pickup'}
+                  onChange={(e) => setDeliveryMethod(e.target.value)}
+                />
+                <span className="option-icon">🏪</span>
+                <span className="option-label">Pickup</span>
+              </label>
             </div>
+          </div>
+
+          <div className="summary-row">
+            <span>Subtotal:</span>
+            <span>${getSubtotal().toFixed(2)}</span>
+          </div>
+          <div className="summary-row">
+            <span>Tax (8%):</span>
+            <span>${getTax().toFixed(2)}</span>
+          </div>
+          {deliveryMethod === 'delivery' && (
             <div className="summary-row">
               <span>Delivery Fee:</span>
               <span>
@@ -237,56 +397,52 @@ export default function Cart() {
                 )}
               </span>
             </div>
-            <div className="summary-row total">
-              <span>Total:</span>
-              <span>${getTotalPrice().toFixed(2)}</span>
+          )}
+          {appliedPromo && (
+            <div className="summary-row discount">
+              <span>Discount ({appliedPromo.code}):</span>
+              <span className="discount-amount">-${getDiscount().toFixed(2)}</span>
             </div>
+          )}
+          <div className="summary-row total">
+            <span>Total:</span>
+            <span>${getTotalPrice().toFixed(2)}</span>
+          </div>
 
-            {getSubtotal() < 20 && getSubtotal() > 0 && (
-              <div className="delivery-notice">
-                Add ${(20 - getSubtotal()).toFixed(2)} more for free delivery!
-              </div>
-            )}
+          {deliveryMethod === 'delivery' && getSubtotal() < 20 && getSubtotal() > 0 && (
+            <div className="delivery-notice">
+              Add ${(20 - getSubtotal()).toFixed(2)} more for free delivery!
+            </div>
+          )}
 
+          {cart.length > 0 ? (
             <div className="checkout-form">
-              <input
-                type="text"
-                placeholder="Your Name *"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="form-input"
-                required
-              />
-              <input
-                type="email"
-                placeholder="Email (for history)"
-                value={customerEmail}
-                onChange={(e) => setCustomerEmail(e.target.value)}
-                className="form-input"
-              />
-              <textarea
-                placeholder="Special instructions (optional)"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="form-textarea"
-                rows="3"
-              />
               <button
-                onClick={handleCheckout}
-                disabled={isLoading}
+                onClick={() => {
+                  // Save order type and applied promo to localStorage for checkout page
+                  localStorage.setItem('orderType', deliveryMethod)
+                  if (appliedPromo) {
+                    localStorage.setItem('appliedPromo', JSON.stringify(appliedPromo))
+                  }
+                  navigate('/checkout')
+                }}
+                disabled={cart.length === 0}
                 className="btn-checkout"
               >
-                {isLoading ? 'Processing...' : `Place Order - $${getTotalPrice().toFixed(2)}`}
+                Proceed to Checkout - ${getTotalPrice().toFixed(2)}
               </button>
               {!user && (
                 <button type="button" className="login-under" onClick={openAuth}>
                   Log in to save history
                 </button>
               )}
-              <p className="payment-note">💵 Pay with cash on delivery</p>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="empty-cart-notice">
+              <p>Add items to your cart to checkout</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

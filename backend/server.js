@@ -10,6 +10,9 @@ const winston = require('winston');
 const menuRoutes = require('./routes/menu');
 const ordersRoutes = require('./routes/orders');
 const authRoutes = require('./routes/auth');
+const promoRoutes = require('./routes/promo');
+const paymentRoutes = require('./routes/payment');
+const analyticsRoutes = require('./routes/analytics');
 
 // Load environment variables
 dotenv.config();
@@ -32,20 +35,37 @@ const logger = winston.createLogger({
 });
 
 // Middleware
-app.use(helmet()); // Security headers
+// Security headers with Content Security Policy
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "http://localhost:3000", "http://localhost:5173"],
+      fontSrc: ["'self'", "data:"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
 app.use(cors()); // CORS support
 app.use(morgan('combined', { stream: { write: (msg) => logger.info(msg.trim()) } })); // HTTP request logger
 
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 500, // limit each IP to 500 requests per windowMs
+  message: { error: 'Too many requests, please try again later.' }
 });
 app.use(limiter);
 
-// Body parser middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parser middleware with size limits
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -69,6 +89,9 @@ app.get('/api/db-test', async (req, res) => {
 app.use('/api', menuRoutes);
 app.use('/api', ordersRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/promo', promoRoutes);
+app.use('/api/payment', paymentRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // 404 handler
 app.use((req, res) => {

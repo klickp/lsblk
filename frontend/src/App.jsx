@@ -3,10 +3,13 @@ import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react
 import './App.css'
 import Menu from './pages/Menu'
 import Cart from './pages/Cart'
+import Checkout from './pages/Checkout'
+import OrderConfirmation from './pages/OrderConfirmation'
 import History from './pages/History'
 import Business from './pages/Business'
 import Kitchen from './pages/Kitchen'
 import BusinessHistory from './pages/BusinessHistory'
+import BusinessAnalytics from './pages/BusinessAnalytics'
 
 export const AuthContext = createContext(null)
 
@@ -25,16 +28,16 @@ function Navigation({ cartCount, user, openAuth, handleLogout }) {
           🍽️ Ordering System
         </Link>
         <div className="nav-menu">
-          <Link to="/" className="nav-link">
-            🍕 Menu
+          <Link to="/" className="nav-link" title="Menu">
+            🍕
           </Link>
-          <Link to="/cart" className="nav-link cart-link">
-            🛒 Cart
+          <Link to="/cart" className="nav-link cart-link" title="Cart">
+            🛒
             {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
           </Link>
           {user && (
-            <Link to="/history" className="nav-link">
-              📊 History
+            <Link to="/history" className="nav-link" title="Order History">
+              📋
             </Link>
           )}
           {user ? (
@@ -177,9 +180,12 @@ function App() {
             <Routes>
               <Route path="/" element={<Menu />} />
               <Route path="/cart" element={<Cart />} />
+              <Route path="/checkout" element={<Checkout />} />
+              <Route path="/order-confirmation" element={<OrderConfirmation />} />
               <Route path="/history" element={<History />} />
               <Route path="/business" element={<Business />} />
               <Route path="/business/history" element={<BusinessHistory />} />
+              <Route path="/business/analytics" element={<BusinessAnalytics />} />
               <Route path="/kitchen" element={<Kitchen />} />
             </Routes>
           </main>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import './BusinessHistory.css'
-import apiClient from '../services/api'
+import { orderApi } from '../services/api'
 import AdminLogin from '../components/AdminLogin'
 
 function BusinessHistoryContent() {
@@ -20,9 +20,9 @@ function BusinessHistoryContent() {
 
   const fetchOrders = async () => {
     try {
-      const response = await apiClient.get('/orders?limit=100')
-      if (response.data.success) {
-        setOrders(response.data.data || [])
+      const response = await orderApi.getOrders({ limit: 100 })
+      if (response.success) {
+        setOrders(response.data || [])
       }
     } catch (err) {
       console.error('Error fetching orders:', err)
@@ -42,7 +42,7 @@ function BusinessHistoryContent() {
 
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
-      await apiClient.put(`/orders/${orderId}/status`, { status: newStatus })
+      await orderApi.updateOrderStatus(orderId, newStatus)
       fetchOrders()
     } catch (err) {
       console.error('Error updating order:', err)

@@ -1,0 +1,67 @@
+:root {
+  /* Primary Colors - Warm Pizza Shop Theme */
+  --primary-red: #D32F2F;
+  --primary-red-dark: #B71C1C;
+  --primary-red-light: #EF5350;
+  
+  --secondary-gold: #FFA726;
+  --secondary-gold-dark: #F57C00;
+  --secondary-gold-light: #FFB74D;
+  
+  --accent-green: #66BB6A;
+  --accent-basil: #388E3C;
+  
+  /* Neutral Colors */
+  --cream: #FFF8E1;
+  --warm-white: #FFFBF5;
+  --charcoal: #2C2C2C;
+  --medium-gray: #757575;
+  --light-gray: #EEEEEE;
+  
+  /* Semantic Colors */
+  --success: #4CAF50;
+  --warning: #FF9800;
+  --error: #F44336;
+  --info: #2196F3;
+  
+  /* Shadows & Depth */
+  --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.15);
+  --shadow-lg: 0 10px 24px rgba(0,0,0,0.2);
+  --shadow-pizza: 0 8px 16px rgba(211, 47, 47, 0.3);
+  
+  /* Typography */
+  --font-heading: 'Playfair Display', serif;
+  --font-body: 'Inter', -apple-system, sans-serif;
+  --font-accent: 'Pacifico', cursive;
+  
+  /* Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+  
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+  
+  /* Transitions */
+  --transition-fast: 150ms ease-in-out;
+  --transition-base: 250ms ease-in-out;
+  --transition-slow: 400ms ease-in-out;
+}
+
+/* Base Typography */
+body {
+  font-family: var(--font-body);
+  color: var(--charcoal);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}

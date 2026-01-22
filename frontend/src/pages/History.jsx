@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react'
 import { Link } from 'react-router-dom'
 import './History.css'
-import apiClient from '../services/api'
+import { orderApi } from '../services/api'
 import { AuthContext } from '../App'
 
 export default function History() {
@@ -10,6 +10,7 @@ export default function History() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [autoRefresh, setAutoRefresh] = useState(false)
 
   useEffect(() => {
     // Check if admin (logged into business/kitchen)
@@ -18,11 +19,21 @@ export default function History() {
     if (isAdminAuth) {
       // Admin view: fetch all orders with limit
       fetchOrders(null, 20)
+      
+      if (autoRefresh) {
+        const interval = setInterval(() => fetchOrders(null, 20), 10000)
+        return () => clearInterval(interval)
+      }
     } else if (user?.email) {
       // Customer view: fetch only their orders
       fetchOrders(user.email)
+      
+      if (autoRefresh) {
+        const interval = setInterval(() => fetchOrders(user.email), 10000)
+        return () => clearInterval(interval)
+      }
     }
-  }, [user])
+  }, [user, autoRefresh])
 
   const fetchOrders = async (email = null, limit = null) => {
     setLoading(true)
@@ -34,9 +45,9 @@ export default function History() {
       if (limit) {
         params.limit = limit
       }
-      const response = await apiClient.get('/orders', { params })
+      const response = await orderApi.getOrders(params)
       // Ensure orders are sorted by most recent first
-      const sorted = (response.data.data || []).sort((a, b) => 
+      const sorted = (response.data || []).sort((a, b) => 
         new Date(b.created_at) - new Date(a.created_at)
       )
       setOrders(sorted)
@@ -50,7 +61,7 @@ export default function History() {
 
   const getOrderDetails = async (orderId) => {
     try {
-      const response = await apiClient.get(`/orders/${orderId}`)
+      const response = await orderApi.getOrder(orderId)
       setSelectedOrder(response.data.data)
     } catch (err) {
       console.error('Failed to load order details:', err)
@@ -77,8 +88,20 @@ export default function History() {
 
   return (
     <div className="history-container">
-      <h1>{isAdminView ? '📊 All Orders' : '📊 Order History'}</h1>
-      {isAdminView && <p className="admin-note">Showing last 20 orders</p>}
+      <div className="history-header">
+        <div>
+          <h1>{isAdminView ? '📊 All Orders' : '📊 Order History'}</h1>
+          {isAdminView && <p className="admin-note">Showing last 20 orders</p>}
+        </div>
+        <label className="auto-refresh-toggle">
+          <input
+            type="checkbox"
+            checked={autoRefresh}
+            onChange={(e) => setAutoRefresh(e.target.checked)}
+          />
+          <span>Auto-refresh (10s)</span>
+        </label>
+      </div>
 
       <div className="history-layout">
         <div className="orders-list">
@@ -183,11 +206,11 @@ export default function History() {
             <div className="detail-section">
               <label>Items:</label>
               <div className="items-list">
-                {selectedOrder.items?.map(item => (
-                  <div key={item.item_id} className="item-detail">
-                    <span>{item.name}</span>
+                {selectedOrder.items?.map((item, index) => (
+                  <div key={item.item_id || index} className="item-detail">
+                    <span className="item-name">{item.name || item.item_name || 'Unknown Item'}</span>
                     <span className="qty">x{item.quantity}</span>
-                    <span className="price">${(item.price_at_order * item.quantity).toFixed(2)}</span>
+                    <span className="price">${((item.price_at_order || item.price) * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
               </div>

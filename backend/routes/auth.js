@@ -2,20 +2,9 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
+const { authValidation, sanitizeInput } = require('../middleware/validator');
 
 const router = express.Router();
-
-// Mock users storage for when database is unavailable
-let mockUsers = [
-  {
-    user_id: 1,
-    name: 'John Doe',
-    email: 'john@example.com',
-    password_hash: '$2b$10$abcdefghijklmnopqrstuv', // mock hash
-    created_at: new Date().toISOString()
-  }
-];
-let nextUserId = 2;
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const SALT_ROUNDS = 10;
@@ -52,7 +41,7 @@ const validateEmail = (email) => {
 };
 
 // Register new user
-router.post('/register', async (req, res) => {
+router.post('/register', sanitizeInput, authValidation.register, async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
@@ -109,37 +98,8 @@ router.post('/register', async (req, res) => {
         token
       });
     } catch (dbError) {
-      console.log('Database not available, using mock storage');
-
-      // Check if email exists in mock
-      const existing = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-      if (existing) {
-        return res.status(409).json({ error: 'Email already registered' });
-      }
-
-      // Add to mock users
-      const newUser = {
-        user_id: nextUserId++,
-        name,
-        email,
-        password_hash: passwordHash,
-        created_at: new Date().toISOString()
-      };
-      mockUsers.push(newUser);
-
-      // Generate token
-      const token = jwt.sign(
-        { userId: newUser.user_id, email: newUser.email, name: newUser.name },
-        JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-
-      res.json({
-        success: true,
-        message: 'Registration successful (mock)',
-        user: { user_id: newUser.user_id, name: newUser.name, email: newUser.email },
-        token
-      });
+      console.error('Database error:', dbError);
+      return res.status(500).json({ error: 'Database connection failed' });
     }
   } catch (error) {
     console.error('Registration error:', error);
@@ -148,7 +108,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', sanitizeInput, authValidation.login, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -199,34 +159,8 @@ router.post('/login', async (req, res) => {
         token
       });
     } catch (dbError) {
-      console.log('Database not available, using mock storage');
-
-      const user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-
-      if (!user) {
-        return res.status(401).json({ error: 'Invalid email or password' });
-      }
-
-      // Verify password
-      const isValid = await bcrypt.compare(password, user.password_hash);
-
-      if (!isValid) {
-        return res.status(401).json({ error: 'Invalid email or password' });
-      }
-
-      // Generate token
-      const token = jwt.sign(
-        { userId: user.user_id, email: user.email, name: user.name },
-        JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-
-      res.json({
-        success: true,
-        message: 'Login successful (mock)',
-        user: { user_id: user.user_id, name: user.name, email: user.email },
-        token
-      });
+      console.error('Database error:', dbError);
+      return res.status(500).json({ error: 'Database connection failed' });
     }
   } catch (error) {
     console.error('Login error:', error);

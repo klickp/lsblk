@@ -1,34 +1,58 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import './Kitchen.css'
-import apiClient from '../services/api'
+import { orderApi } from '../services/api'
 import AdminLogin from '../components/AdminLogin'
 
 function KitchenContent() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(false)
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [lastOrderCount, setLastOrderCount] = useState(0)
+  const [filter, setFilter] = useState('all') // all, pending, preparing, ready
 
   useEffect(() => {
     fetchOrders()
     
     if (autoRefresh) {
-      const interval = setInterval(fetchOrders, 5000) // Poll every 5 seconds
+      const interval = setInterval(fetchOrders, 10000) // Poll every 10 seconds
       return () => clearInterval(interval)
     }
   }, [autoRefresh])
 
+  const playNotificationSound = () => {
+    if (soundEnabled) {
+      const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjiP1/jPdykEK3vJ79+OPgsWYLLp7alWEgpBoeLwwW0hBDGP1/PSdigEKHnF8N6PQQsVXLLq7apYEQc/oe...')
+      audio.volume = 0.3
+      audio.play().catch(() => {}) // Ignore errors if sound fails
+    }
+  }
+
   const fetchOrders = async () => {
     try {
-      const response = await apiClient.get('/orders', {
-        params: { status: 'pending,preparing,ready' }
+      const response = await orderApi.getOrders({
+        status: 'pending,preparing,ready'
       })
       
-      const ordersData = response.data.data || []
-      // Sort by created_at, newest first
-      const sorted = ordersData.sort((a, b) => 
-        new Date(b.created_at) - new Date(a.created_at)
-      )
+      const ordersData = response.data || []
+      
+      // Check for new orders
+      if (ordersData.length > lastOrderCount && lastOrderCount > 0) {
+        playNotificationSound()
+      }
+      setLastOrderCount(ordersData.length)
+      
+      // Sort by priority: pending first, then by time
+      const sorted = ordersData.sort((a, b) => {
+        // Priority order: pending > preparing > ready
+        const statusPriority = { pending: 3, preparing: 2, ready: 1 }
+        if (statusPriority[a.status] !== statusPriority[b.status]) {
+          return statusPriority[b.status] - statusPriority[a.status]
+        }
+        // Within same status, oldest first
+        return new Date(a.created_at) - new Date(b.created_at)
+      })
       setOrders(sorted)
     } catch (err) {
       console.error('Failed to fetch orders:', err)
@@ -38,7 +62,7 @@ function KitchenContent() {
   const updateOrderStatus = async (orderId, newStatus) => {
     setLoading(true)
     try {
-      await apiClient.put(`/orders/${orderId}/status`, { status: newStatus })
+      await orderApi.updateOrderStatus(orderId, newStatus)
       await fetchOrders()
     } catch (err) {
       console.error('Failed to update order status:', err)
@@ -88,6 +112,18 @@ function KitchenContent() {
     return `${hours}h ${mins}m ago`
   }
 
+  const isOrderUrgent = (createdAt, status) => {
+    const diffMins = Math.floor((new Date() - new Date(createdAt)) / 60000)
+    if (status === 'pending' && diffMins > 5) return true
+    if (status === 'preparing' && diffMins > 20) return true
+    if (status === 'ready' && diffMins > 10) return true
+    return false
+  }
+
+  const filteredOrders = filter === 'all' 
+    ? orders 
+    : orders.filter(order => order.status === filter)
+
   return (
     <div className="kitchen-container">
       <div className="kitchen-header">
@@ -96,6 +132,32 @@ function KitchenContent() {
           <Link to="/history" className="history-link">📊 Order History</Link>
         </div>
         <div className="header-actions">
+          <div className="filter-buttons">
+            <button 
+              className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+              onClick={() => setFilter('all')}
+            >
+              All ({orders.length})
+            </button>
+            <button 
+              className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
+              onClick={() => setFilter('pending')}
+            >
+              Pending ({orders.filter(o => o.status === 'pending').length})
+            </button>
+            <button 
+              className={`filter-btn ${filter === 'preparing' ? 'active' : ''}`}
+              onClick={() => setFilter('preparing')}
+            >
+              Preparing ({orders.filter(o => o.status === 'preparing').length})
+            </button>
+            <button 
+              className={`filter-btn ${filter === 'ready' ? 'active' : ''}`}
+              onClick={() => setFilter('ready')}
+            >
+              Ready ({orders.filter(o => o.status === 'ready').length})
+            </button>
+          </div>
           <button 
             onClick={fetchOrders} 
             className="refresh-btn"
@@ -109,7 +171,15 @@ function KitchenContent() {
               checked={autoRefresh}
               onChange={(e) => setAutoRefresh(e.target.checked)}
             />
-            Auto-refresh (5s)
+            Auto-refresh
+          </label>
+          <label className="auto-refresh">
+            <input
+              type="checkbox"
+              checked={soundEnabled}
+              onChange={(e) => setSoundEnabled(e.target.checked)}
+            />
+            🔔 Sound
           </label>
           <div className="order-count">
             {orders.length} Active Order{orders.length !== 1 ? 's' : ''}
@@ -118,22 +188,33 @@ function KitchenContent() {
       </div>
 
       <div className="orders-grid">
-        {orders.length === 0 ? (
+        {filteredOrders.length === 0 ? (
           <div className="empty-kitchen">
-            <p>No active orders</p>
+            <p>🍽️ No {filter !== 'all' ? filter : 'active'} orders</p>
             <p className="empty-subtitle">Orders will appear here automatically</p>
           </div>
         ) : (
-          orders.map(order => (
-            <div 
-              key={order.order_id} 
-              className={`order-card status-${order.status}`}
-              style={{ borderLeftColor: getStatusColor(order.status) }}
-            >
-              <div className="order-card-header">
-                <div className="order-number">Order #{order.order_id}</div>
-                <div className="order-time">{getTimeElapsed(order.created_at)}</div>
-              </div>
+          filteredOrders.map(order => {
+            const isUrgent = isOrderUrgent(order.created_at, order.status)
+            return (
+              <div 
+                key={order.order_id} 
+                className={`order-card status-${order.status} ${isUrgent ? 'urgent' : ''}`}
+                style={{ borderLeftColor: getStatusColor(order.status) }}
+              >
+                <div className="order-card-header">
+                  <div className="order-number">
+                    Order #{order.order_id}
+                    {order.order_type && (
+                      <span className={`order-type-badge ${order.order_type}`}>
+                        {order.order_type === 'delivery' ? '🚗' : '🛍️'} {order.order_type}
+                      </span>
+                    )}
+                  </div>
+                  <div className={`order-time ${isUrgent ? 'urgent-time' : ''}`}>
+                    {isUrgent && '⚠️ '}{getTimeElapsed(order.created_at)}
+                  </div>
+                </div>
 
               <div className="order-customer">
                 <strong>{order.customer_name}</strong>
@@ -180,8 +261,8 @@ function KitchenContent() {
                 </button>
               )}
             </div>
-          ))
-        )}
+          )}
+        ))}
       </div>
     </div>
   )

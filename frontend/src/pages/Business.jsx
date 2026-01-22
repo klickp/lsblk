@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import './Business.css'
-import apiClient from '../services/api'
+import { menuApi, categoryApi, orderApi } from '../services/api'
 import AdminLogin from '../components/AdminLogin'
 
 function BusinessContent() {
@@ -20,12 +20,12 @@ function BusinessContent() {
 
   const loadMenu = async () => {
     try {
-      const [categoriesRes, menuRes] = await Promise.all([
-        apiClient.get('/categories'),
-        apiClient.get('/menu')
+      const [categoriesData, menuData] = await Promise.all([
+        categoryApi.getCategories(),
+        menuApi.getMenu()
       ])
-      setCategories(categoriesRes.data.data || [])
-      setMenu(menuRes.data.data || [])
+      setCategories(categoriesData.data || [])
+      setMenu(menuData.data || [])
     } catch (err) {
       console.error('Menu loading error:', err)
     }
@@ -33,10 +33,48 @@ function BusinessContent() {
 
   const handleQuantityChange = (itemId, value) => {
     const qty = parseInt(value) || 0
+    const item = menu.find(i => i.item_id === itemId)
+    const stock = item?.stock || 50 // Default stock if not specified
+    
+    if (qty > stock) {
+      setMessage(`⚠️ Only ${stock} ${item.name} available in stock`)
+      setTimeout(() => setMessage(''), 3000)
+      return
+    }
+    
     setQuantities(prev => ({
       ...prev,
       [itemId]: qty
     }))
+  }
+
+  const incrementQuantity = (itemId) => {
+    const currentQty = quantities[itemId] || 0
+    const item = menu.find(i => i.item_id === itemId)
+    const stock = item?.stock || 50
+    
+    if (currentQty >= stock) {
+      setMessage(`⚠️ Only ${stock} ${item.name} available in stock`)
+      setTimeout(() => setMessage(''), 3000)
+      return
+    }
+    
+    handleQuantityChange(itemId, currentQty + 1)
+  }
+
+  const decrementQuantity = (itemId) => {
+    const currentQty = quantities[itemId] || 0
+    if (currentQty > 0) {
+      handleQuantityChange(itemId, currentQty - 1)
+    }
+  }
+
+  const removeItem = (itemId) => {
+    setQuantities(prev => {
+      const newQuantities = { ...prev }
+      delete newQuantities[itemId]
+      return newQuantities
+    })
   }
 
   const getOrderItems = () => {
@@ -94,7 +132,7 @@ function BusinessContent() {
         notes: notes
       }
 
-      const response = await apiClient.post('/orders', orderData)
+      const response = await orderApi.createOrder(orderData)
 
       if (response.data.success) {
         setMessage(`✓ Order #${response.data.orderId} placed successfully!`)
@@ -138,6 +176,9 @@ function BusinessContent() {
         <Link to="/business/history" className="nav-link" title="View all orders">
           📊
         </Link>
+        <Link to="/business/analytics" className="nav-link" title="Business Analytics">
+          📈
+        </Link>
       </div>
 
       {message && (
@@ -156,22 +197,49 @@ function BusinessContent() {
               <div key={category.category_id} className="category-section">
                 <h3 className="category-label">{category.name}</h3>
                 <div className="items-grid">
-                  {categoryItems.map(item => (
-                    <div key={item.item_id} className="item-card">
-                      <div className="item-details">
-                        <span className="item-name">{item.name}</span>
-                        <span className="item-price">${item.price.toFixed(2)}</span>
+                  {categoryItems.map(item => {
+                    const qty = quantities[item.item_id] || 0
+                    const stock = item.stock || 50
+                    const isLowStock = stock < 10
+                    
+                    return (
+                      <div key={item.item_id} className="item-card">
+                        <div className="item-details">
+                          <span className="item-name">{item.name}</span>
+                          <span className="item-price">${item.price.toFixed(2)}</span>
+                          <span className={`item-stock ${isLowStock ? 'low' : ''}`}>
+                            Stock: {stock}
+                          </span>
+                        </div>
+                        <div className="qty-controls">
+                          <button 
+                            onClick={() => decrementQuantity(item.item_id)}
+                            className="qty-btn minus"
+                            disabled={qty === 0}
+                          >
+                            −
+                          </button>
+                          <span className="qty-display">{qty}</span>
+                          <button 
+                            onClick={() => incrementQuantity(item.item_id)}
+                            className="qty-btn plus"
+                            disabled={qty >= stock}
+                          >
+                            +
+                          </button>
+                          {qty > 0 && (
+                            <button 
+                              onClick={() => removeItem(item.item_id)}
+                              className="qty-btn delete"
+                              title="Remove from order"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <input
-                        type="number"
-                        min="0"
-                        value={quantities[item.item_id] || ''}
-                        onChange={(e) => handleQuantityChange(item.item_id, e.target.value)}
-                        className="qty-input"
-                        placeholder="0"
-                      />
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )
